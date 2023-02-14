@@ -73,13 +73,36 @@ def get_piv_vectors(frame_a,frame_b,dt,window_size=32,threshold=1.,scaling_facto
     search_area = window_size
     u, v, sig2noise = openpiv.pyprocess.extended_search_area_piv(frame_a, frame_b, window_size=window_size, overlap=overlap, dt=dt,
                                                                  search_area_size=search_area, sig2noise_method='peak2peak')
+    # bins = np.linspace(0,10,100)
+    # plt.hist(sig2noise.flatten(),bins=bins)
+    # plt.show()
+    # stop
     x, y = openpiv.pyprocess.get_coordinates(frame_a.shape, search_area, overlap)
-    u, v, mask = openpiv.validation.sig2noise_val(u, v, sig2noise, threshold=threshold)
+    # u, v, mask = openpiv.validation.sig2noise_val(u, v, sig2noise, threshold=threshold) #old version
+    # mask = openpiv.validation.sig2noise_val(sig2noise, threshold=threshold)
+    mask = openpiv.validation.sig2noise_val(sig2noise, threshold=threshold)
+    u[mask] = np.nan
+    v[mask] = np.nan
+
     x_scaled, y_scaled, u, v = openpiv.scaling.uniform(x, y, u, v, scaling_factor=scaling_factor)
 
     #filters out vectors that are obviously too large (this is noise)
     if not noise_thresh is None:
-        u, v, mask = openpiv.validation.global_val(u, v, u_thresholds=(-noise_thresh,noise_thresh), v_thresholds=(-noise_thresh,noise_thresh))
+        mask = openpiv.validation.global_val(u, v, u_thresholds=(-noise_thresh,noise_thresh), v_thresholds=(-noise_thresh,noise_thresh))
+        u[mask] = np.nan
+        v[mask] = np.nan
+
+    #filters out vectors that are well beyond standard deviation
+    mask = openpiv.validation.global_std(u, v, std_threshold=2)
+    u[mask] = np.nan
+    v[mask] = np.nan
+
+    #run a local median filter
+    mask = openpiv.validation.local_median_val(np.ma.array(u,mask=np.ones_like(u)), #requires masked arrays for some reason
+                                               np.ma.array(v,mask=np.ones_like(v)),
+                                               0.2, 0.2)
+    u[mask.data] = np.nan
+    v[mask.data] = np.nan
 
     if filter_bad_neighbors:
         #filters out abarrent vectors (pointing in a vastly different direction compared to neighbors)
@@ -121,25 +144,11 @@ def get_piv_vectors(frame_a,frame_b,dt,window_size=32,threshold=1.,scaling_facto
         u[mask_length] = np.nan
         v[mask_length] = np.nan
 
-        #removes vectors that are not within the mask region
-        u_interp = deepcopy(u)
-        v_interp = deepcopy(v)
-
-        if mask_a is None:
-            mask_a = np.ones_like(frame_a)
-
-        for i in range(len(x)):
-            for j in range(len(x[i])):
-                idx_y = int(round(x[i][j])) #note x and y are swapped
-                idx_x = int(round(y[i][j])) #note x and y are swapped
-                if not np.flipud(mask_a)[idx_x][idx_y]:
-                    u[i][j] = np.nan
-                    v[i][j] = np.nan
-
     #makes a mask if a specific mask is not given
     if mask_a is None:
         mask_a = np.ones_like(frame_a)
 
+    #removes vectors that are not within the mask region
     for i in range(len(x)):
         for j in range(len(x[i])):
             idx_y = int(round(x[i][j])) #note x and y are swapped
@@ -151,7 +160,9 @@ def get_piv_vectors(frame_a,frame_b,dt,window_size=32,threshold=1.,scaling_facto
     # performs interpolation
     u_interp = deepcopy(u)
     v_interp = deepcopy(v)
-    u_interp, v_interp = openpiv.filters.replace_outliers(u_interp, v_interp, method='distance', max_iter=10, kernel_size=2)
+    # u_interp, v_interp = openpiv.filters.replace_outliers(u_interp, v_interp, method='distance', max_iter=10, kernel_size=2)
+    flags = np.isnan(u)
+    u_interp, v_interp = openpiv.filters.replace_outliers(u_interp, v_interp, flags, method='distance', max_iter=10, kernel_size=2)
 
     #removes interpolated vectors that are not within the mask region
     u_interp_masked = deepcopy(u_interp)
@@ -175,7 +186,6 @@ def get_piv_vectors(frame_a,frame_b,dt,window_size=32,threshold=1.,scaling_facto
 
     #swap the v components so that that positive vectors point up with origin top left
     v = -v
-    v_interp = -v_interp
     v_interp_masked = -v_interp_masked
 
     vector_data = {"x":x_scaled,"y":y_scaled,
@@ -250,8 +260,14 @@ def extract_vectors(stk_path,time_int=1,px_size=1,mask=None,window_length=10,noi
     if len(stk.shape) != 3:
         raise ValueError('Input stack must be 3D (2D images over time)')
     if isinstance(mask, np.ndarray):
-        if stk.shape[1:] != mask.shape:
-            raise ValueError('Mask must have same dimensions as stack images')
+        print(mask.shape)
+        print(stk.shape)
+        if stk.shape == mask.shape:
+            print('Using mask stack!')
+        elif stk.shape[1:] == mask.shape:
+            print('Using single mask image!')
+        else:
+            raise ValueError('Mask must have same dimensions as stack images (either single image with same xy dimensions or stack with same xyt stack dimensions)')
         mask = (mask > 0).astype('uint8')
     elif mask is None:
         mask = np.ones_like(stk[0])
@@ -274,15 +290,25 @@ def extract_vectors(stk_path,time_int=1,px_size=1,mask=None,window_length=10,noi
     for j in range(stk.shape[0]-1):
         print("Analyzing frame %i/%i"%(j+1,stk.shape[0]-1))
 
+        #specify frames to analyze
         frame_a = stk[j]
         frame_b = stk[j+1]
+
+        #specify mask frame
+        if len(mask.shape)==2:
+            mask_a = mask
+        elif len(mask.shape)==3:
+            mask_a = mask[j+1]
+        else:
+            raise ValueError('Invalid Mask Dimensions')
 
         #does the PIV analysis
         window_size = int(np.round(window_length/px_size)) #pixel equivalent
         if window_size%2!=0:
             window_size -= 1
-        vector_data = get_piv_vectors(frame_a,frame_b,time_int,scaling_factor=1./px_size,mask_a=mask,
-                                      window_size=window_size,noise_thresh=noise_thresh,filter_bad_neighbors=True)
+        vector_data = get_piv_vectors(frame_a,frame_b,time_int,scaling_factor=1./px_size,mask_a=mask_a,
+                                      # window_size=window_size,noise_thresh=noise_thresh,filter_bad_neighbors=True)
+                                      window_size=window_size,noise_thresh=0.2,filter_bad_neighbors=False)
 
         #saves data (U,V in um/min)
         uf.save_data_array(vector_data["x"],os.path.join(save_dir,basename+"_t%i_x.dat"%(j+1)))
@@ -305,13 +331,13 @@ def main():
     # px_size = 0.91 #um/px
     # window_len = 20 #interrogation window length in um
 
-    stk_path = './sample_data/tumor_nuclei_small/tumor_nuclei_small.tif'
+    stk_path = './sample_data/PIV_karen/sample/runway_zoom.tif'
     time_int = 30 #min
-    px_size = 0.91 #um/px
-    window_len = 10 #interrogation window length in um
+    px_size = 0.882 #um/px
+    window_len = 50 #interrogation window length in um
 
     #if you want to use a manually-generated mask, use the following:
-    mask_path = './sample_data/tumor_nuclei_small/tumor_nuclei_small_mask.tif'
+    mask_path = './sample_data/PIV_karen/sample/runway_zoom_mask.tif'
     mask = tifffile.imread(mask_path)
     extract_vectors(stk_path,time_int=time_int,px_size=px_size,window_length=window_len,mask=mask)
 

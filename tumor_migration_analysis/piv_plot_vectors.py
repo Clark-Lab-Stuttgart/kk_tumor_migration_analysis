@@ -97,7 +97,7 @@ def plot_vectors(stk_path,px_size=1,scale_factor=0.004,scale_length=0.1,vector_w
             fig.subplots_adjust(bottom=0,left=0,top=1,right=1)
 
             #saves plot as png
-            plt.savefig(plot_dir + '/%s_vectors.png'%basename)
+            plt.savefig(plot_dir + '/%s_vectors.png'%basename, dpi=600)
             plt.close()
 
 def main():
@@ -107,11 +107,17 @@ def main():
 
     """
 
-    #sets some initial parameters
-    stk_path = './sample_data/tumor_nuclei_small/tumor_nuclei_small.tif'
-    px_size = 0.91 #um/px
+    # #sets some initial parameters
+    stk_path = './sample_data/PIV_karen/sample_full/t83-84.tif'
+    px_size = 0.882 #um/px
     scale_factor = 0.004 #for scaling the PIV vectors on the plots
     scale_length = 0.1 #sets the length of the scale vector on the plots (in um/min)
+    # #sets some initial parameters
+    # stk_path = './sample_data/tumor_nuclei_small/tumor_nuclei_small.tif'
+    # px_size = 0.91 #um/px
+    # scale_factor = 0.004 #for scaling the PIV vectors on the plots
+    # scale_length = 0.1 #sets the length of the scale vector on the plots (in um/min)
+
 
     plot_vectors(stk_path,px_size=px_size,scale_factor=scale_factor,scale_length=scale_length)
 
