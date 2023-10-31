@@ -331,13 +331,13 @@ def main():
     # px_size = 0.91 #um/px
     # window_len = 20 #interrogation window length in um
 
-    stk_path = './sample_data/PIV_karen/sample/runway_zoom.tif'
+    stk_path = './JC8_WT_day3_1_crop _C_trimmed_edges_manual_mask.tif'
     time_int = 30 #min
-    px_size = 0.882 #um/px
+    px_size = 0.8817564589 #um/px
     window_len = 50 #interrogation window length in um
 
     #if you want to use a manually-generated mask, use the following:
-    mask_path = './sample_data/PIV_karen/sample/runway_zoom_mask.tif'
+    mask_path = '/Users/aclark/Documents/Work/Data/jasmin_piv/2023-10-13_WT_day3_1/mask_manual.tif'
     mask = tifffile.imread(mask_path)
     extract_vectors(stk_path,time_int=time_int,px_size=px_size,window_length=window_len,mask=mask)
 

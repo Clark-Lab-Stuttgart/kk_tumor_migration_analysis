@@ -85,7 +85,7 @@ def plot_vectors(stk_path,px_size=1,scale_factor=0.004,scale_length=0.1,vector_w
 
             #makes an arrow for scale
             cm = LinearSegmentedColormap.from_list('cm', [(1,1,1),(1,1,1)])
-            plt.quiver([width-30],[height-height*0.05], [scale_length],[0],[0],cmap=cm,
+            plt.quiver([width-width*0.04],[height-height*0.02], [scale_length],[0],[0],cmap=cm,
                        units='xy', scale=scale_factor, scale_units='x',width=vector_width)
 
             #finishes plot
@@ -108,9 +108,9 @@ def main():
     """
 
     # #sets some initial parameters
-    stk_path = './sample_data/PIV_karen/sample_full/t83-84.tif'
-    px_size = 0.882 #um/px
-    scale_factor = 0.004 #for scaling the PIV vectors on the plots
+    stk_path = './JC8_WT_day3_1_crop _C_trimmed_edges_manual_mask_bf_overlay.tif'
+    px_size = 0.8817564589 #um/px
+    scale_factor = 0.002 #for scaling the PIV vectors on the plots
     scale_length = 0.1 #sets the length of the scale vector on the plots (in um/min)
     # #sets some initial parameters
     # stk_path = './sample_data/tumor_nuclei_small/tumor_nuclei_small.tif'
@@ -119,7 +119,7 @@ def main():
     # scale_length = 0.1 #sets the length of the scale vector on the plots (in um/min)
 
 
-    plot_vectors(stk_path,px_size=px_size,scale_factor=scale_factor,scale_length=scale_length)
+    plot_vectors(stk_path,px_size=px_size,scale_factor=scale_factor,scale_length=scale_length,vector_width=3)
 
 if __name__=="__main__":
     main()

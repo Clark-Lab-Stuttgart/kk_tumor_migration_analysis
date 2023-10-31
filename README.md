@@ -3,7 +3,12 @@
 This package contains several python scripts and ImageJ/FIJI macros
 that can aid in the analysis of collective migration patterns.
 
-All python scripts were written and tested in python 3.8
+All python scripts were written and tested in python 3.8.
+This package also works in python 3.9.
+For versions >3.9, you will run into problems with package versions.
+
+In case the `astropy` version is problematic during installation, just remove it from the requirements file and get everything else.
+After that, you can just run `python -m pip install astropy` and it should give you a working version that is compatible with the other packages.
 
 ## Requirements
 
